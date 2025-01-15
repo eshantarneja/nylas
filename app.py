@@ -54,7 +54,6 @@ def authorized():
 @app.route("/nylas/auth", methods=["GET"])
 def login():
     print("Login request received")
-    session.clear()
     if session.get("grant_id") is None:
         config = URLForAuthenticationConfig({"client_id": os.environ.get("NYLAS_CLIENT_ID"), 
                                             "redirect_uri" : "http://localhost:5002/oauth/exchange"})
@@ -70,20 +69,8 @@ def recent_emails():
     print("Recent emails request received")
     query_params = {"limit": 5} 
     try:
-        messages, _, _ = nylas.messages.list("/me/", query_params)
-        print(f"Messages fetched: {messages}")
-        return jsonify(messages)
-    except Exception as e:
-        print(f"Error fetching emails: {e}")
-        return f'{e}'
-    
-@app.route("/nylas/recent-emails-hardcoded", methods=["GET"])
-def recent_emails_hardcoded():
-    print("Hardcode emails request received")
-    query_params = {"limit": 5} 
-    hardcoded_grant_id = "32c07218-4638-4ba1-941e-8413f5b51d22"
-    try:
-        messages, _, _ = nylas.messages.list(hardcoded_grant_id, query_params)
+        print(session["grant_id"])
+        messages, _, _ = nylas.messages.list(session["grant_id"], query_params)
         print(f"Messages fetched: {messages}")
         return jsonify(messages)
     except Exception as e:
@@ -148,6 +135,5 @@ def get_emails_recent(limit=1):
 
 # Run our application
 if __name__ == "__main__":
-    # app.run(port=5002)
-    print(get_emails_recent(3))
+    app.run(port=5002)
 
