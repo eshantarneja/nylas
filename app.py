@@ -48,12 +48,13 @@ def authorized():
             print(f"Grant ID set to: {session['grant_id']}")
         except Exception as e:
             print(f"Error during authorization: {e}")
-        return redirect(url_for("login"))
+        return redirect(url_for("recent_emails"))
 
 # Main page
 @app.route("/nylas/auth", methods=["GET"])
 def login():
     print("Login request received")
+    session.clear()
     if session.get("grant_id") is None:
         config = URLForAuthenticationConfig({"client_id": os.environ.get("NYLAS_CLIENT_ID"), 
                                             "redirect_uri" : "http://localhost:5002/oauth/exchange"})
