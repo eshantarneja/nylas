@@ -77,7 +77,51 @@ def recent_emails():
     except Exception as e:
         print(f"Error fetching emails: {e}")
         return f'{e}'
+    
+@app.route("/nylas/recent-emails-hardcoded", methods=["GET"])
+def recent_emails_hardcoded():
+    print("Recent emails request received")
+    
+    # Get the `count` parameter from the query string, default to 5 if not provided
+    count = request.args.get("count", default=5, type=int)
+    
+    # Get the `grant_id` parameter from the query string
+    grant_id = request.args.get("grant_id")
+    
+    # If no `grant_id` is provided, return an error response
+    if not grant_id:
+        return jsonify({"error": "Missing required parameter 'grant_id'"}), 400
 
+    query_params = {"limit": count}
+    emails = []
+    
+    try:
+        # Fetch messages using the `grant_id` and `count` parameter
+        messages = nylas.messages.list(grant_id, query_params)
+        for page in messages:
+            for msg in page:
+                if str(type(msg)) == "<class 'nylas.models.messages.Message'>":
+                    email_data = {
+                    "ID": "",
+                    "Subject": "",
+                    "Snippet": "",
+                    "From": "",
+                    "To": "",
+                    "Body": ""
+                    }
+                    email_data["ID"] = msg.id
+                    email_data["Subject"] = msg.subject
+                    email_data["Snippet"] = msg.snippet
+                    email_data["From"] = msg.from_
+                    email_data["To"] = msg.to
+                    email_data["Body"] = msg.body
+                    emails.append(email_data)   
+        print(emails)
+        return emails
+    except Exception as e:
+        print(f"Error fetching emails: {e}")
+        return jsonify({"error": str(e)}), 500
+    
 @app.route("/nylas/send-email", methods=["GET"])
 def send_email():
     print("Send email request received")
@@ -94,6 +138,27 @@ def send_email():
     except Exception as e:
         print(f"Error sending email: {e}")
         return f'{e}'
+
+@app.route("/nylas/instagram", methods=["GET", "POST"])
+def receive_instagram():
+    request_data = {
+        'method': request.method,
+        'args': request.args.to_dict(),
+        'headers': dict(request.headers),
+        'path': request.path,
+        'url': request.url,
+        'body': request.get_data().decode('utf-8'),
+        'form': request.form.to_dict(),
+        'json': request.get_json(silent=True),
+        'cookies': request.cookies.to_dict()
+    }
+
+    instaData = request_data['form'] 
+    print("type of instaData: ", type(instaData))
+    print('instaData: ', instaData)
+    return jsonify(instaData)
+
+
     
 def get_emails_recent(limit=1):
     nylas = Client(
