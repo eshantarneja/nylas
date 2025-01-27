@@ -6,7 +6,12 @@ from flask import Flask, request, redirect, url_for, session, jsonify
 from flask_session.__init__ import Session
 from nylas.models.auth import URLForAuthenticationConfig
 from nylas.models.auth import CodeExchangeRequest
+from nylas.models.webhooks import WebhookTriggers
 import requests
+import hmac
+import hashlib
+from bs4 import BeautifulSoup
+import re
 # Load your env variables
 load_dotenv()
 
@@ -227,6 +232,126 @@ def call_firebase(input_text="Test"):
     except Exception as e:
         print(f"Error calling firebase API: {e}")
         return {"error": str(e)}
+
+@app.route("/nylas/webhook", methods=["GET", "POST"])
+def webhook():
+    print("\n=== Webhook Request Received ===")
+    print(f"Method: {request.method}")
+    print(f"Headers: {dict(request.headers)}")
+    
+    if request.method == "GET":
+        # Handle webhook challenge verification
+        challenge = request.args.get("challenge")
+        if challenge:
+            print(f"Challenge received: {challenge}")
+            return challenge
+        return "No challenge found", 400
+
+    # Handle POST requests (actual webhook notifications)
+    if request.method == "POST":
+        try:
+            # Get the raw data
+            raw_data = request.get_data()
+            print(f"Raw webhook data: {raw_data.decode('utf-8')}")
+            
+            # Process the webhook notification
+            webhook_data = request.get_json()
+            
+            print("\n=== Email Notification ===")
+            print(f"Trigger: {webhook_data.get('type')}")
+            
+            # Extract email details in the same format as get_emails_recent
+            data = webhook_data.get('data', {})
+            msg = data.get('object', {})
+            
+            if msg:
+                email_data = {
+                    "ID": "",
+                    "Subject": "",
+                    "Snippet": "",
+                    "From": "",
+                    "To": "",
+                    "Body": ""
+                }
+                
+                email_data["ID"] = msg.get('id')
+                email_data["Subject"] = msg.get('subject')
+                email_data["Snippet"] = msg.get('snippet')
+                email_data["From"] = msg.get('from', [{}])[0].get('email', '')  # Extract email from the first 'from' entry
+                email_data["To"] = [to.get('email', '') for to in msg.get('to', [])]  # Extract all 'to' emails
+                email_data["Body"] = clean_email(msg.get('body', ''))
+                
+                print("\n=== Processed Email Details ===")
+                print(f"ID: {email_data['ID']}")
+                print(f"Subject: {email_data['Subject']}")
+                print(f"Snippet: {email_data['Snippet']}")
+                print(f"From: {email_data['From']}")
+                print(f"To: {email_data['To']}")
+                print(f"Clean Body: {email_data['Body']}")
+                print("==========================\n")
+                
+                # Here you could do something with the email_data
+                # For example, store it, forward it, etc.
+            
+            return "Webhook processed", 200
+            
+        except Exception as e:
+            print(f"Error processing webhook: {e}")
+            return f"Error: {str(e)}", 500
+
+    return "Method not allowed", 405
+
+@app.route("/nylas/create-webhook", methods=["GET"])
+def create_webhook():
+    try:
+        webhook_url = os.environ.get("WEBHOOK_URL")
+        if not webhook_url:
+            return jsonify({"error": "WEBHOOK_URL not configured in environment"}), 500
+
+        email = os.environ.get("EMAIL")
+        if not email:
+            return jsonify({"error": "EMAIL not configured in environment"}), 500
+
+        webhook = nylas.webhooks.create(
+            request_body={
+                "trigger_types": [
+                    "message.created"
+                ],
+                "webhook_url": webhook_url,
+                "description": "Email notifications webhook",
+                "notification_email_address": email,
+            }
+        )
+        
+        print("Created webhook:", webhook)
+        return jsonify({
+            "message": "Webhook created successfully",
+            "webhook_id": webhook.id if hasattr(webhook, 'id') else None,
+            "webhook_url": webhook_url
+        }), 200
+        
+    except Exception as e:
+        print(f"Error creating webhook: {e}")
+        return jsonify({"error": str(e)}), 500
+
+def clean_email(html_content):
+    # Clean HTML content
+    soup = BeautifulSoup(html_content, 'html.parser')
+    text = soup.get_text(separator=' ')
+    
+    # Clean whitespace
+    # Step 1: Remove excessive newlines
+    text = re.sub(r'\n\s*\n+', '\n', text)
+    
+    # Step 2: Strip leading/trailing whitespace on each line
+    text = '\n'.join(line.strip() for line in text.splitlines())
+    
+    # Step 3: Remove multiple spaces and invisible characters
+    text = re.sub(r'\s+', ' ', text)  # Replace multiple spaces with a single space
+    text = re.sub(r'\u200b|\u200c|\u200d|‌|​', '', text)  # Remove zero-width spaces and similar
+    
+    # Step 4: Remove leading/trailing whitespace
+    return text.strip()
 
 # Run our application
 if __name__ == "__main__":
