@@ -6,7 +6,7 @@ from flask import Flask, request, redirect, url_for, session, jsonify
 from flask_session.__init__ import Session
 from nylas.models.auth import URLForAuthenticationConfig
 from nylas.models.auth import CodeExchangeRequest
-
+import requests
 # Load your env variables
 load_dotenv()
 
@@ -141,6 +141,8 @@ def send_email():
 
 @app.route("/nylas/instagram", methods=["GET", "POST"])
 def receive_instagram():
+
+
     request_data = {
         'method': request.method,
         'args': request.args.to_dict(),
@@ -156,6 +158,7 @@ def receive_instagram():
     instaData = request_data['form'] 
     print("type of instaData: ", type(instaData))
     print('instaData: ', instaData)
+    call_firebase(instaData)
     return jsonify(instaData)
 
 
@@ -198,6 +201,32 @@ def get_emails_recent(limit=1):
                 emails.append(email_data)
     
     return emails
+
+
+def call_firebase(input_text="Test"):
+    """
+    Makes a POST request to the googlesheets endpoint
+    Args:
+        input_text: Text to send in the request (defaults to "Test")
+    Returns:
+        The response from the API
+    """
+    print("calling firebase with input: ", input_text)
+    url = "https://48c7-199-94-1-204.ngrok-free.app/firebase/instagram"
+    headers = {
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "input": input_text
+    }
+    
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        response.raise_for_status()  # Raises an HTTPError if the status is 4xx, 5xx
+        return response.json()
+    except Exception as e:
+        print(f"Error calling firebase API: {e}")
+        return {"error": str(e)}
 
 # Run our application
 if __name__ == "__main__":
