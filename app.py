@@ -166,7 +166,6 @@ def receive_instagram():
     call_firebase(instaData)
     return jsonify(instaData)
 
-
     
 def get_emails_recent(limit=1):
     nylas = Client(
@@ -208,16 +207,17 @@ def get_emails_recent(limit=1):
     return emails
 
 
-def call_firebase(input_text="Test"):
+def call_firebase(input_text="Test", route="instagram"):
     """
-    Makes a POST request to the googlesheets endpoint
+    Makes a POST request to the specified firebase endpoint
     Args:
         input_text: Text to send in the request (defaults to "Test")
+        route: The route to use for the request (defaults to "instagram")
     Returns:
         The response from the API
     """
-    print("calling firebase with input: ", input_text)
-    url = "https://48c7-199-94-1-204.ngrok-free.app/firebase/instagram"
+    print(f"calling firebase with input: {input_text} and route: {route}")
+    url = f"https://48c7-199-94-1-204.ngrok-free.app/firebase/{route}"
     headers = {
         "Content-Type": "application/json"
     }
@@ -266,29 +266,33 @@ def webhook():
             
             if msg:
                 email_data = {
-                    "ID": "",
-                    "Subject": "",
-                    "Snippet": "",
-                    "From": "",
-                    "To": "",
-                    "Body": ""
+                    "id": "",
+                    "subject": "",
+                    "snippet": "",
+                    "from": "",
+                    "to": "",
+                    "body": "",
+                    "date": "",
+                    "debug": "true"
                 }
                 
-                email_data["ID"] = msg.get('id')
-                email_data["Subject"] = msg.get('subject')
-                email_data["Snippet"] = msg.get('snippet')
-                email_data["From"] = msg.get('from', [{}])[0].get('email', '')  # Extract email from the first 'from' entry
-                email_data["To"] = [to.get('email', '') for to in msg.get('to', [])]  # Extract all 'to' emails
-                email_data["Body"] = clean_email(msg.get('body', ''))
+                email_data["id"] = msg.get('id')
+                email_data["subject"] = msg.get('subject')
+                email_data["snippet"] = msg.get('snippet')
+                email_data["from"] = msg.get('from', [{}])[0].get('email', '')  # Extract email from the first 'from' entry
+                email_data["to"] = [to.get('email', '') for to in msg.get('to', [])]  # Extract all 'to' emails
+                email_data["body"] = clean_email(msg.get('body', ''))
                 
                 print("\n=== Processed Email Details ===")
-                print(f"ID: {email_data['ID']}")
-                print(f"Subject: {email_data['Subject']}")
-                print(f"Snippet: {email_data['Snippet']}")
-                print(f"From: {email_data['From']}")
-                print(f"To: {email_data['To']}")
-                print(f"Clean Body: {email_data['Body']}")
+                print(f"ID: {email_data['id']}")
+                print(f"Subject: {email_data['subject']}")
+                print(f"Snippet: {email_data['snippet']}")
+                print(f"From: {email_data['from']}")
+                print(f"To: {email_data['to']}")
+                print(f"Clean Body: {email_data['body']}")
                 print("==========================\n")
+
+                call_firebase(email_data, "email")
                 
                 # Here you could do something with the email_data
                 # For example, store it, forward it, etc.
