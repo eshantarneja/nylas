@@ -12,6 +12,7 @@ import hmac
 import hashlib
 from bs4 import BeautifulSoup
 import re
+
 # Load your env variables
 load_dotenv()
 
@@ -35,7 +36,10 @@ nylas = Client(
 
 print("Initialized Nylas client: ", nylas)
 
-# Call the authorization page
+# Cache to store processed email IDs
+processed_email_ids = set()
+
+# Call the authorization page   
 @app.route("/oauth/exchange", methods=["GET"])
 def authorized():
     print("Authorization exchange request received")
@@ -166,7 +170,6 @@ def receive_instagram():
     call_firebase(instaData)
     return jsonify(instaData)
 
-    
 def get_emails_recent(limit=1):
     nylas = Client(
     os.environ.get('NYLAS_API_KEY'),
@@ -205,7 +208,6 @@ def get_emails_recent(limit=1):
                 emails.append(email_data)
     
     return emails
-
 
 def call_firebase(input_text="Test", route="instagram"):
     """
@@ -260,6 +262,27 @@ def webhook():
             print("\n=== Email Notification ===")
             print(f"Trigger: {webhook_data.get('type')}")
             
+            # Get the webhook ID for duplicate checking
+            webhook_id = webhook_data.get('id')
+            
+            # Check if we've already processed this webhook
+            if webhook_id in processed_email_ids:
+                print("\n")
+                print("*" * 50)
+                print("🚫 DUPLICATE WEBHOOK DETECTED 🚫")
+                print(f"Webhook ID: {webhook_id}")
+                print(f"Subject: {webhook_data.get('data', {}).get('object', {}).get('subject')}")
+                print(f"From: {webhook_data.get('data', {}).get('object', {}).get('from', [{}])[0].get('email', '')}")
+                print("This webhook has already been processed and will be skipped")
+                print("*" * 50)
+                print("\n")
+                return "Duplicate webhook skipped", 200
+            
+            # Add the webhook ID to our processed set
+            processed_email_ids.add(webhook_id)
+            print(f"\nAdded new webhook ID to processed set: {webhook_id}")
+            print(f"Total unique webhooks processed: {len(processed_email_ids)}\n")
+            
             # Extract email details in the same format as get_emails_recent
             data = webhook_data.get('data', {})
             msg = data.get('object', {})
@@ -293,9 +316,6 @@ def webhook():
                 print("==========================\n")
 
                 call_firebase(email_data, "email")
-                
-                # Here you could do something with the email_data
-                # For example, store it, forward it, etc.
             
             return "Webhook processed", 200
             
