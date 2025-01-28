@@ -219,7 +219,7 @@ def call_firebase(input_text="Test", route="instagram"):
         The response from the API
     """
     print(f"calling firebase with input: {input_text} and route: {route}")
-    url = f"https://48c7-199-94-1-204.ngrok-free.app/firebase/{route}"
+    url = f"https://crmai-221518599345.us-central1.run.app/firebase/{route}"
     headers = {
         "Content-Type": "application/json"
     }
